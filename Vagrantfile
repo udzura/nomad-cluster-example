@@ -21,9 +21,6 @@ sudo mv nomad /usr/bin/nomad
 sudo mkdir -p /etc/nomad.d
 sudo chmod a+w /etc/nomad.d
 
-# Set hostname's IP to made advertisement Just Work
-sudo sed -i -e "s/.*nomad.*/$(ip route get 1 | awk '{print $NF;exit}') nomad/" /etc/hosts
-
 SCRIPT
 
 $update_hosts = <<SCRIPT
@@ -34,11 +31,30 @@ echo "172.17.8.101 nomad1.local" | sudo tee -a /etc/hosts
 echo "172.17.8.102 nomad2.local" | sudo tee -a /etc/hosts
 SCRIPT
 
+$add_hcl = <<SCRIPT
+cat <<EOC | sudo tee /etc/nomad.hcl >/dev/null
+# Increase log verbosity
+log_level = "DEBUG"
+
+# Setup data dir
+data_dir = "/tmp/server"
+
+# Enable the server
+server {
+    enabled = true
+
+    # Self-elect, should be 3 or 5 for production
+    bootstrap_expect = 3
+}
+EOC
+SCRIPT
+
 Vagrant.configure(2) do |config|
   config.vm.box = "ubuntu/xenial64" # 16.04 LTS
   config.vm.hostname = "nomad"
   config.vm.provision "shell", inline: $script, privileged: false
   config.vm.provision "shell", inline: $update_hosts, privileged: false
+  config.vm.provision "shell", inline: $add_hcl, privileged: false
   config.vm.provision "docker" # Just install it
 
   # Increase memory for Virtualbox

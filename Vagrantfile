@@ -49,12 +49,38 @@ server {
 EOC
 SCRIPT
 
+$add_cli_hcl = <<SCRIPT
+cat <<EOC | sudo tee /etc/nomad-client.hcl >/dev/null
+# Increase log verbosity
+log_level = "DEBUG"
+
+# Setup data dir
+data_dir = "/tmp/client"
+
+# Enable the client
+client {
+    enabled = true
+
+    # For demo assume we are talking to server1. For production,
+    # this should be like "nomad.service.consul:4647" and a system
+    # like Consul used for service discovery.
+    servers = ["127.0.0.1:4647"]
+}
+
+# Modify our port to avoid a collision with server1
+ports {
+    http = 5656
+}
+EOC
+SCRIPT
+
 Vagrant.configure(2) do |config|
   config.vm.box = "ubuntu/xenial64" # 16.04 LTS
   config.vm.hostname = "nomad"
   config.vm.provision "shell", inline: $script, privileged: false
   config.vm.provision "shell", inline: $update_hosts, privileged: false
   config.vm.provision "shell", inline: $add_hcl, privileged: false
+  config.vm.provision "shell", inline: $add_cli_hcl, privileged: false
   config.vm.provision "docker" # Just install it
 
   # Increase memory for Virtualbox
